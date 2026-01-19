@@ -144,3 +144,82 @@ app.delete('/delete-items/:id', async (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
+
+
+
+app.post('/register', async (req, res) => {
+  try {
+    const { username, password, confirm } = req.body;
+
+    if (!username || !password || !confirm) {
+      return res.status(400).json({
+        success: false,
+        message: "All fields are required"
+      });
+    }
+
+    if (password !== confirm) {
+      return res.status(400).json({
+        success: false,
+        message: "Passwords do not match"
+      });
+    }
+
+    const existingUser = await pool.query(
+      'SELECT * FROM user_accounts WHERE username = $1',
+      [username]
+    );
+
+    if (existingUser.rows.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Username already exists"
+      });
+    }
+
+    await pool.query(
+      'INSERT INTO user_accounts (username, password) VALUES ($1, $2)',
+      [username, password]
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Registered successfully"
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+app.post('/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+
+    const user = await pool.query(
+      'SELECT * FROM user_accounts WHERE username = $1 AND password = $2',
+      [username, password]
+    );
+
+    if (user.rows.length === 0) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid username or password"
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Login successful"
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
