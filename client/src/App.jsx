@@ -1,6 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import axios from 'axios';
+import {useNavigate}  from 'react-router-dom';
+
+axios.defaults.withCredentials = true;
 
 function App() {
   const [username, setUsername] = useState("");
@@ -9,9 +13,10 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [loginSuccess, setLoginSuccess] = useState(false);
 
-  // Kunin ang API URL mula sa Environment Variables (Vercel Settings)
-  // Siguraduhing may "https://" ang URL sa Vercel settings mo
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+
+  const API = 'https://to-do-list-p4te.onrender.com';
+
+  const navigate = useNavigate();
 
   useEffect(() => {
     const lastUser = localStorage.getItem("lastRegisteredUser");

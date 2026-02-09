@@ -2,6 +2,8 @@
 "use client";
 
 import { useState } from "react";
+import axios from 'axios';
+import {useNavigate} from 'react-router-dom';
 
 function Register() {
   const [username, setUsername] = useState("");
@@ -11,6 +13,9 @@ function Register() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const navigate = useNavigate();''
+  const API = 'https://to-do-list-p4te.onrender.com';
 
   const handleRegister = async (e) => {
     e.preventDefault();

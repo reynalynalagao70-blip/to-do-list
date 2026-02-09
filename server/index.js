@@ -1,23 +1,37 @@
 
 import express from 'express';
 import session from 'express-session';
+import cors from 'cors';
 import { pool } from './db.js';
 import { hashPassword, comparePassword } from './components/hash.js';
 
 const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.set('trust proxy, 1');
 app.use(express.json());
+
+app.use(cors({
+    origin: 'https://to-do-list-ten-gold-45.vercel.app',
+    credentials: true
+}));
 
 
 app.use(
   session({
+    name: 'todo_sid',
     secret: 'secret-key',
     resave: false,
     saveUninitialized: false,
-    cookie: { secure: false }
+    cookie: { 
+        secure: false,
+        httpOnly: true,
+        sameSite: 'none',
+
+     }
   })
 );
 
-const PORT = 3000;
 
 
 // REGISTER
