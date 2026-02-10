@@ -66,6 +66,19 @@ app.post('/login', async (req, res) => {
         res.status(500).json({ success: false, error: error.message });
     }
 });
+app.post('/logout', (req, res) => {
+    req.session.destroy(err => {
+        if (err) return res.status(500).json({ success: false, message: "Logout failed" });
+        // MAHALAGA: Dapat match ang options sa session cookie para ma-clear
+        res.clearCookie('todo_sid', {
+            path: '/',
+            secure: true,
+            sameSite: 'none',
+            httpOnly: true
+        });
+        res.json({ success: true, message: "Logged out successfully" });
+    });
+});
 
 app.get('/get-session', (req, res) => {
     if (req.session.user) {
