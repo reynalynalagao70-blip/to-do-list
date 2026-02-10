@@ -3,38 +3,27 @@ import axios from 'axios';
 import { useNavigate } from "react-router-dom";
 import Header from "../Components/Header";
 
-// Fallsback sa Render URL kung sakaling hindi mabasa ang .env
 const apiUrl = import.meta.env.VITE_PUBLIC_API_URL || 'https://to-do-list-p4te.onrender.com';
-
 axios.defaults.withCredentials = true;
 
 function ListItem() {
   const [lists, setLists] = useState([]);
   const navigate = useNavigate();
 
-  // Inayos na fetchLists para may error handling
   const fetchLists = async () => {
     try {
       const res = await fetch(`${apiUrl}/get-list`, { credentials: "include" });
-      
-      if (!res.ok) {
-        throw new Error(`Server error: ${res.status}`);
-      }
-
+      if (!res.ok) throw new Error(`Server error: ${res.status}`);
       const data = await res.json();
-      if (data.success) {
-        setLists(data.list);
-      }
+      if (data.success) setLists(data.list);
     } catch (err) {
       console.error("Error fetching lists:", err);
     }
   };
 
-  // Inayos na addList na may validation at refresh logic
   const addList = async () => {
     const listTitle = prompt("Enter list title:");
     if (!listTitle) return;
-
     try {
       const res = await fetch(`${apiUrl}/add-list`, {
         method: "POST",
@@ -42,18 +31,44 @@ function ListItem() {
         credentials: "include",
         body: JSON.stringify({ listTitle }),
       });
-
-      if (res.ok) {
-        // Hintayin nating matapos ang fetch bago mag-update ang UI
-        await fetchLists(); 
-      } else {
-        const errorData = await res.text();
-        console.error("Failed to add list. Server response:", errorData);
-        alert("Hindi makapag-add sa ngayon. Check server console.");
-      }
+      if (res.ok) await fetchLists();
     } catch (err) {
       console.error("Error connecting to server:", err);
-      alert("Network error. Siguraduhing gising ang Render backend mo.");
+    }
+  };
+
+  // --- NEW: EDIT LIST TITLE ---
+  const editList = async (e, listId, currentTitle) => {
+    e.stopPropagation(); // Pinipigilan nito ang pag-navigate papasok sa list
+    const newTitle = prompt("Edit list title:", currentTitle);
+    if (!newTitle || newTitle === currentTitle) return;
+
+    try {
+      const res = await fetch(`${apiUrl}/edit-list/${listId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ listTitle: newTitle }),
+      });
+      if (res.ok) await fetchLists();
+    } catch (err) {
+      console.error("Error editing list:", err);
+    }
+  };
+
+  // --- NEW: DELETE LIST ---
+  const deleteList = async (e, listId) => {
+    e.stopPropagation(); // Pinipigilan nito ang pag-navigate
+    if (!window.confirm("Bura na ba itong buong listahan pati ang mga tasks sa loob?")) return;
+
+    try {
+      const res = await fetch(`${apiUrl}/delete-list/${listId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (res.ok) await fetchLists();
+    } catch (err) {
+      console.error("Error deleting list:", err);
     }
   };
 
@@ -83,10 +98,28 @@ function ListItem() {
               <div 
                 key={list.id} 
                 onClick={() => navigate(`/list/${list.id}`)}
-                className="p-5 border-2 rounded-xl cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-all"
+                className="p-5 border-2 rounded-xl cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-all flex justify-between items-center"
               >
-                <h3 className="text-xl font-bold">{list.title}</h3>
-                <p className="text-sm text-gray-500">View items inside this list →</p>
+                <div>
+                  <h3 className="text-xl font-bold">{list.title}</h3>
+                  <p className="text-sm text-gray-500">View items inside this list →</p>
+                </div>
+
+                {/* EDIT AT DELETE BUTTONS */}
+                <div className="flex gap-2">
+                  <button 
+                    onClick={(e) => editList(e, list.id, list.title)}
+                    className="bg-blue-100 text-blue-600 px-3 py-1 rounded hover:bg-blue-200"
+                  >
+                    Edit
+                  </button>
+                  <button 
+                    onClick={(e) => deleteList(e, list.id)}
+                    className="bg-red-100 text-red-600 px-3 py-1 rounded hover:bg-red-200"
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
             ))
           )}
