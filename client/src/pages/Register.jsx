@@ -8,7 +8,6 @@ function Register() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [registerSuccess, setRegisterSuccess] = useState(false);
@@ -17,8 +16,9 @@ function Register() {
 
   const handleRegister = async (e) => {
     e.preventDefault();
-    setError("");
+    setError(""); // Linisin ang error message bago mag-start
     
+    // VALIDATIONS (Custom UI Error imbes na alert)
     if (password !== confirmPassword) {
       setError("Passwords don't match!");
       return;
@@ -32,7 +32,6 @@ function Register() {
     setLoading(true);
 
     try {
-      // Simulation ng storage logic (LocalStorage muna gaya ng luma mo)
       const users = JSON.parse(localStorage.getItem("users") || "[]");
       const userExists = users.some(u => u.username === username || u.email === email);
       
@@ -50,12 +49,10 @@ function Register() {
       
       users.push(newUser);
       localStorage.setItem("users", JSON.stringify(users));
-      localStorage.setItem("lastRegisteredUser", username);
-
-      // Trigger SUCCESS DESIGN
+      
+      // I-trigger ang Modern Success Overlay (yung bounce animation na gusto mo)
       setRegisterSuccess(true);
 
-      // Redirect pagkatapos ng 2.5 seconds para makita ang animation
       setTimeout(() => {
         navigate("/");
       }, 2500);
@@ -69,9 +66,9 @@ function Register() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#f8fafc] p-4 font-sans relative overflow-hidden">
       
-      {/* --- MODERN SUCCESS OVERLAY --- */}
+      {/* --- MODERN SUCCESS OVERLAY (Ito ang kapalit ng alert pag success) --- */}
       {registerSuccess && (
-        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white/95 backdrop-blur-md animate-in fade-in duration-500">
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white/95 backdrop-blur-md transition-all duration-500">
           <div className="relative">
             <div className="w-24 h-24 bg-green-500 rounded-full flex items-center justify-center animate-bounce shadow-2xl shadow-green-200">
               <svg className="w-14 h-14 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -81,9 +78,6 @@ function Register() {
           </div>
           <h2 className="mt-8 text-3xl font-black text-gray-900">Account Created!</h2>
           <p className="text-gray-500 mt-2">Redirecting you to login page...</p>
-          <div className="mt-6 w-48 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-            <div className="h-full bg-green-500 animate-progress-load"></div>
-          </div>
         </div>
       )}
 
@@ -93,8 +87,9 @@ function Register() {
           <p className="text-gray-400 font-medium">Join us to start organizing tasks</p>
         </div>
 
+        {/* --- ERROR DESIGN (Ito ang kapalit ng alert pag may error) --- */}
         {error && (
-          <div className="mb-6 p-4 bg-red-50 text-red-600 text-sm font-bold rounded-2xl border border-red-100 flex items-center gap-2">
+          <div className="mb-6 p-4 bg-red-50 text-red-600 text-sm font-bold rounded-2xl border border-red-100 flex items-center gap-2 animate-pulse">
             <span>⚠️ {error}</span>
           </div>
         )}
