@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import axios from 'axios';
-import {useNavigate}  from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 axios.defaults.withCredentials = true;
 
@@ -13,8 +13,8 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [loginSuccess, setLoginSuccess] = useState(false);
 
-
-  const API = 'https://to-do-list-p4te.onrender.com';
+  // SIGURADUHIN na consistent ang pangalan ng variable
+  const API_URL = import.meta.env.VITE_PUBLIC_API_URL || 'https://to-do-list-p4te.onrender.com';
 
   const navigate = useNavigate();
 
@@ -41,7 +41,6 @@ function App() {
     try {
       console.log("Connecting to:", `${API_URL}/login`);
 
-      // 1. TAWAG SA RENDER (BACKEND + NEON DB)
       const response = await fetch(`${API_URL}/login`, {
         method: "POST",
         headers: {
@@ -50,26 +49,29 @@ function App() {
         body: JSON.stringify({ username, password }),
       });
 
+      // Dito madalas nagkaka-error na 'Unexpected token <'
+      // I-check muna kung JSON ang sagot bago i-parse
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error("Server did not return JSON. Possible 404 or 500 error.");
+      }
+
       const data = await response.json();
 
       if (response.ok) {
-        // ✅ SUCCESS MULA SA DATABASE
-        console.log("✅ Login successful via Neon DB:", data);
+        console.log("✅ Login successful:", data);
         executeLoginSuccess(data.user || { username });
       } else {
-        // ❌ ERROR MULA SA SERVER (e.g. Wrong Password)
-        // Check muna sa localStorage bago sumuko (fallback)
         checkLocalFallback();
       }
     } catch (backendError) {
-      console.log("Backend offline, checking localStorage...");
+      console.error("Login error:", backendError);
       checkLocalFallback();
     } finally {
       setLoading(false);
     }
   };
 
-  // Function para sa Local Storage Fallback (para hindi ma-stuck kung offline ang Render)
   const checkLocalFallback = () => {
     const users = JSON.parse(localStorage.getItem("users") || "[]");
     const user = users.find(
@@ -80,19 +82,18 @@ function App() {
       console.log("✅ Login successful via localStorage");
       executeLoginSuccess(user);
     } else {
-      setError("❌ Invalid credentials. Check your Database or Local Storage.");
+      setError("❌ Invalid credentials. Backend offline and no local record found.");
     }
   };
 
-  // Function para sa actual redirect
   const executeLoginSuccess = (userData) => {
     setLoginSuccess(true);
     localStorage.setItem("isLoggedIn", "true");
     localStorage.setItem("currentUser", JSON.stringify(userData));
 
     setTimeout(() => {
-      // Mas mainam gamitin ang window.location.href para siguradong refresh ang state
-      window.location.href = "/listitem";
+      // Mas safe gamitin ang navigate() kung React Router ang gamit mo
+      navigate("/listitem"); 
     }, 1500);
   };
 
@@ -149,7 +150,7 @@ function App() {
         </form>
 
         <div className="mt-6 text-center">
-           <button onClick={() => window.location.href = "/register"} className="text-green-600 font-bold hover:underline">
+           <button onClick={() => navigate("/register")} className="text-green-600 font-bold hover:underline">
              Create Account
            </button>
         </div>
