@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+
+axios.defaults.withCredentials = true;
 
 function App() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false); // State para sa Eye Icon
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [loginSuccess, setLoginSuccess] = useState(false);
@@ -14,10 +16,24 @@ function App() {
   const API_URL = import.meta.env.VITE_PUBLIC_API_URL || 'https://to-do-list-p4te.onrender.com';
   const navigate = useNavigate();
 
-  // Handle Login Logic
+  useEffect(() => {
+    const lastUser = localStorage.getItem("lastRegisteredUser");
+    if (lastUser) {
+      setUsername(lastUser);
+      localStorage.removeItem("lastRegisteredUser");
+    }
+  }, []);
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
+    setLoginSuccess(false);
+
+    if (!username || !password) {
+      setError("Please enter username and password");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -27,112 +43,135 @@ function App() {
         body: JSON.stringify({ username, password }),
       });
 
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error("Server error (HTML returned)");
+      }
+
       const data = await response.json();
 
       if (response.ok) {
-        setLoginSuccess(true);
-        localStorage.setItem("isLoggedIn", "true");
-        setTimeout(() => navigate("/listitem"), 2000);
+        executeLoginSuccess(data.user || { username });
       } else {
-        setLoading(false);
-        setError(data.message || "Invalid credentials");
+        checkLocalFallback();
       }
-    } catch (err) {
-      setLoading(false);
-      setError("Server is offline. Please try again later.");
+    } catch (backendError) {
+      checkLocalFallback();
+    } finally {
+      // Huwag i-set ang loading to false agad kung success para manatili ang overlay
     }
   };
 
+  const checkLocalFallback = () => {
+    const users = JSON.parse(localStorage.getItem("users") || "[]");
+    const user = users.find(
+      (u) => (u.username === username || u.email === username) && u.password === password
+    );
+
+    if (user) {
+      executeLoginSuccess(user);
+    } else {
+      setLoading(false);
+      setError("❌ Invalid credentials. Please try again.");
+    }
+  };
+
+  const executeLoginSuccess = (userData) => {
+    setLoginSuccess(true);
+    localStorage.setItem("isLoggedIn", "true");
+    localStorage.setItem("currentUser", JSON.stringify(userData));
+
+    setTimeout(() => {
+      navigate("/listitem"); 
+    }, 2000); // Binigyan ng 2 seconds para makita ang design
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#f8fafc] p-4 font-sans">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-100 via-white to-green-100 p-4 relative overflow-hidden">
       
-      {/* SUCCESS OVERLAY */}
+      {/* --- SUCCESS OVERLAY DESIGN --- */}
       {loginSuccess && (
-        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white/95 backdrop-blur-md">
-          <div className="relative">
-             <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center animate-scale-in">
-                <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
-                </svg>
-             </div>
-             <div className="absolute top-0 left-0 w-20 h-20 bg-green-500 rounded-full animate-ping opacity-20"></div>
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white/90 backdrop-blur-sm animate-in fade-in duration-500">
+          <div className="w-24 h-24 bg-green-500 rounded-full flex items-center justify-center mb-4 shadow-lg shadow-green-200 animate-bounce">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-14 w-14 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+            </svg>
           </div>
-          <h2 className="mt-6 text-2xl font-bold text-gray-800">Success!</h2>
-          <p className="text-gray-500">Welcome back, {username}</p>
+          <h2 className="text-2xl font-bold text-gray-800">Login Successful!</h2>
+          <p className="text-gray-500">Welcome back, {username}. Redirecting...</p>
         </div>
       )}
 
-      <div className="w-full max-w-[400px] bg-white p-8 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-gray-100">
-        <div className="text-center mb-10">
-          <h1 className="text-3xl font-black text-gray-900 mb-2">Sign In</h1>
-          <p className="text-gray-400 font-medium">Enter your details to continue</p>
+      {/* --- LOADING OVERLAY --- */}
+      {loading && !loginSuccess && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/10 backdrop-blur-[2px]">
+          <div className="bg-white p-5 rounded-xl shadow-2xl flex items-center space-x-4">
+            <div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
+            <span className="font-medium text-gray-700">Verifying credentials...</span>
+          </div>
+        </div>
+      )}
+
+      <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-gray-100 p-8 transition-all">
+        <div className="text-center mb-8">
+          <div className="inline-block p-3 bg-green-50 rounded-2xl mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </div>
+          <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Welcome Back</h1>
+          <p className="text-gray-500 mt-2">Manage your tasks with ease</p>
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-50 text-red-600 text-sm font-semibold rounded-2xl border border-red-100 animate-shake">
-            {error}
+          <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-r-lg flex items-center">
+            <span className="text-red-700 text-sm font-medium">{error}</span>
           </div>
         )}
 
-        <form onSubmit={handleLogin} className="space-y-6">
-          <div className="space-y-2">
-            <label className="text-sm font-bold text-gray-700 ml-1">Username</label>
+        <form onSubmit={handleLogin} className="space-y-5">
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2 ml-1">Username</label>
             <input
               type="text"
-              className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-green-500 transition-all outline-none"
-              placeholder="Your username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+              className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-green-500/10 focus:border-green-500 outline-none transition-all"
+              placeholder="Enter your username"
               required
             />
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-bold text-gray-700 ml-1">Password</label>
-            <div className="relative">
-              <input
-                type={showPassword ? "text" : "password"}
-                className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-green-500 transition-all outline-none"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-              {/* EYE ICON TOGGLE */}
-              <button 
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                {showPassword ? (
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.882 9.882L5.146 5.147m13.713 13.713L14.854 14.854m-4.972-4.972L3 3m15.356 15.356A10.05 10.05 0 0012 5c-4.478 0-8.268 2.943-9.543 7a10.025 10.025 0 004.132 5.411m0 0L21 21" />
-                  </svg>
-                ) : (
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                  </svg>
-                )}
-              </button>
-            </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2 ml-1">Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-green-500/10 focus:border-green-500 outline-none transition-all"
+              placeholder="••••••••"
+              required
+            />
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-green-600 hover:bg-green-700 text-white py-4 rounded-2xl font-bold text-lg transition-all shadow-lg shadow-green-100 disabled:opacity-50"
+            className="w-full bg-green-600 text-white p-4 rounded-2xl font-bold text-lg hover:bg-green-700 active:scale-[0.98] transition-all shadow-lg shadow-green-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? "Signing in..." : "Login"}
+            {loading ? "Please wait..." : "Sign In"}
           </button>
         </form>
 
-        <p className="mt-8 text-center text-gray-500 font-medium">
-          New here?{" "}
-          <button onClick={() => navigate("/register")} className="text-green-600 font-bold hover:underline">
-            Create account
-          </button>
-        </p>
+        <div className="mt-8 text-center">
+           <p className="text-gray-500 text-sm">Don't have an account?</p>
+           <button 
+             onClick={() => navigate("/register")} 
+             className="mt-2 text-green-600 font-bold hover:text-green-700 transition-colors"
+           >
+             Create New Account
+           </button>
+        </div>
       </div>
     </div>
   );
