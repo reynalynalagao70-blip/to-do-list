@@ -1,63 +1,45 @@
-// register.jsx (keep the same but update the success message)
 "use client";
 
 import { useState } from "react";
-import axios from 'axios';
-import {useNavigate} from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 function Register() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
+  const [registerSuccess, setRegisterSuccess] = useState(false);
 
-  const navigate = useNavigate();''
-  const API = 'https://to-do-list-p4te.onrender.com';
+  const navigate = useNavigate();
 
   const handleRegister = async (e) => {
     e.preventDefault();
     setError("");
-    setSuccess("");
-    
-    // Simple validation
-    if (!username || !email || !password) {
-      setError("Please fill all fields");
-      return;
-    }
     
     if (password !== confirmPassword) {
-      setError("Passwords don't match");
+      setError("Passwords don't match!");
       return;
     }
     
     if (password.length < 6) {
-      setError("Password must be at least 6 characters");
+      setError("Password must be at least 6 characters.");
       return;
     }
 
     setLoading(true);
 
     try {
-      console.log("Sending registration data:", { username, email, password });
-      
-      // Use local storage
+      // Simulation ng storage logic (LocalStorage muna gaya ng luma mo)
       const users = JSON.parse(localStorage.getItem("users") || "[]");
-      
-      // Check if user exists
-      const userExists = users.some(
-        (user) => user.username === username || user.email === email
-      );
+      const userExists = users.some(u => u.username === username || u.email === email);
       
       if (userExists) {
-        setError("Username or email already exists");
-        setLoading(false);
-        return;
+        throw new Error("Username or email already exists.");
       }
       
-      // Add new user to local storage
       const newUser = {
         id: Date.now(),
         username,
@@ -68,148 +50,118 @@ function Register() {
       
       users.push(newUser);
       localStorage.setItem("users", JSON.stringify(users));
-      
-      console.log("Saved to localStorage:", newUser);
-      
-      // Show success message
-      setSuccess("🎉 Registration Successful! You can now login.");
-      
-      // Store username for auto-fill in login
       localStorage.setItem("lastRegisteredUser", username);
-      
-      // Optional: Auto-login after registration
-      const autoLogin = window.confirm("Registration successful! Do you want to login automatically?");
-      
-      if (autoLogin) {
-        // Auto login
-        localStorage.setItem("isLoggedIn", "true");
-        localStorage.setItem("currentUser", JSON.stringify(newUser));
-        
-        setTimeout(() => {
-          alert("Auto-login successful! Going to List Items page...");
-          window.location.href = "/listitem"; // Go directly to ListItem
-        }, 1000);
-      } else {
-        // Just redirect to login page
-        setTimeout(() => {
-          window.location.href = "/"; // Go to login page
-        }, 2000);
-      }
-      
+
+      // Trigger SUCCESS DESIGN
+      setRegisterSuccess(true);
+
+      // Redirect pagkatapos ng 2.5 seconds para makita ang animation
+      setTimeout(() => {
+        navigate("/");
+      }, 2500);
+
     } catch (err) {
-      console.error("Error:", err);
-      setError("Registration failed. Please try again.");
-    } finally {
+      setError(err.message || "Registration failed.");
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
-      <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-6">
-        <h2 className="text-2xl font-bold text-center text-green-600 mb-4">
-          Create Account
-        </h2>
-        
-        {/* Success Message */}
-        {success && (
-          <div className="mb-4 p-3 bg-green-100 border border-green-400 rounded-lg">
-            <div className="flex items-center">
-              <span className="text-green-700 font-medium">✅ {success}</span>
+    <div className="min-h-screen flex items-center justify-center bg-[#f8fafc] p-4 font-sans relative overflow-hidden">
+      
+      {/* --- MODERN SUCCESS OVERLAY --- */}
+      {registerSuccess && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white/95 backdrop-blur-md animate-in fade-in duration-500">
+          <div className="relative">
+            <div className="w-24 h-24 bg-green-500 rounded-full flex items-center justify-center animate-bounce shadow-2xl shadow-green-200">
+              <svg className="w-14 h-14 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
+              </svg>
             </div>
-            <p className="text-sm text-green-600 mt-1">
-              {success.includes("auto-login") 
-                ? "Redirecting to List Items page..." 
-                : "Redirecting to login page..."}
-            </p>
           </div>
-        )}
-        
-        {/* Error Message */}
+          <h2 className="mt-8 text-3xl font-black text-gray-900">Account Created!</h2>
+          <p className="text-gray-500 mt-2">Redirecting you to login page...</p>
+          <div className="mt-6 w-48 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+            <div className="h-full bg-green-500 animate-progress-load"></div>
+          </div>
+        </div>
+      )}
+
+      <div className="w-full max-w-[450px] bg-white p-10 rounded-[2.5rem] shadow-[0_20px_60px_rgba(0,0,0,0.05)] border border-gray-100">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-black text-gray-900 mb-2">Create Account</h1>
+          <p className="text-gray-400 font-medium">Join us to start organizing tasks</p>
+        </div>
+
         {error && (
-          <div className="mb-4 p-3 bg-red-100 border border-red-400 rounded-lg">
-            <span className="text-red-700 font-medium">⚠️ {error}</span>
+          <div className="mb-6 p-4 bg-red-50 text-red-600 text-sm font-bold rounded-2xl border border-red-100 flex items-center gap-2">
+            <span>⚠️ {error}</span>
           </div>
         )}
 
-        <form onSubmit={handleRegister} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Username *</label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full p-2 border rounded"
-              placeholder="john_doe"
-              required
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium mb-1">Email *</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full p-2 border rounded"
-              placeholder="john@example.com"
-              required
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium mb-1">Password *</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full p-2 border rounded"
-              placeholder="min. 6 characters"
-              required
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium mb-1">Confirm Password *</label>
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full p-2 border rounded"
-              placeholder="repeat password"
-              required
-            />
+        <form onSubmit={handleRegister} className="space-y-5">
+          <div className="grid grid-cols-1 gap-5">
+            <div>
+              <label className="text-xs font-bold text-gray-500 uppercase ml-2 mb-2 block">Username</label>
+              <input
+                type="text"
+                className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-green-500 outline-none transition-all"
+                placeholder="Your username"
+                onChange={(e) => setUsername(e.target.value)}
+                required
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-gray-500 uppercase ml-2 mb-2 block">Email Address</label>
+              <input
+                type="email"
+                className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-green-500 outline-none transition-all"
+                placeholder="name@example.com"
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-bold text-gray-500 uppercase ml-2 mb-2 block">Password</label>
+                <input
+                  type="password"
+                  className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-green-500 outline-none transition-all"
+                  placeholder="••••••"
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-500 uppercase ml-2 mb-2 block">Confirm</label>
+                <input
+                  type="password"
+                  className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-green-500 outline-none transition-all"
+                  placeholder="••••••"
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-green-600 text-white p-2 rounded font-bold hover:bg-green-700 disabled:opacity-50"
+            className="w-full bg-gray-900 hover:bg-black text-white py-5 rounded-2xl font-bold text-lg transition-all shadow-xl shadow-gray-200 disabled:opacity-50 mt-4"
           >
-            {loading ? "Creating Account..." : "Register Now"}
+            {loading ? "Registering..." : "Sign Up"}
           </button>
         </form>
 
-        <div className="mt-4 text-center">
-          <p className="text-gray-600">
-            Already have an account?{" "}
-            <button
-              onClick={() => window.location.href = "/"}
-              className="text-green-600 font-bold hover:underline"
-            >
-              Login Here
-            </button>
-          </p>
-        </div>
-        
-        <div className="mt-6 p-3 bg-blue-50 rounded text-xs">
-          <p className="font-bold text-blue-800">✅ AFTER REGISTRATION:</p>
-          <p className="text-blue-700">
-            • You can choose to auto-login<br/>
-            • Or go to login page first<br/>
-            • After login → List Items page
-          </p>
-        </div>
+        <p className="mt-8 text-center text-gray-500 font-medium">
+          Already have an account?{" "}
+          <button onClick={() => navigate("/")} className="text-green-600 font-bold hover:underline">
+            Login
+          </button>
+        </p>
       </div>
     </div>
   );
