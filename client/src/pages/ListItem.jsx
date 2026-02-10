@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import axios from 'axios';
 import { useNavigate } from "react-router-dom";
+import Swal from 'sweetalert2'; // Import SweetAlert2
 import Header from "../Components/Header";
 
 const apiUrl = import.meta.env.VITE_PUBLIC_API_URL || 'https://to-do-list-p4te.onrender.com';
@@ -21,54 +22,115 @@ function ListItem() {
     }
   };
 
+  // --- LOGOUT FUNCTION ---
+  const handleLogout = async () => {
+    const result = await Swal.fire({
+      title: 'Logout?',
+      text: "Sigurado ka bang gusto mong umalis?",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, logout!'
+    });
+
+    if (result.isConfirmed) {
+      try {
+        // Pwedeng tawagin ang backend logout endpoint mo rito
+        await axios.post(`${apiUrl}/logout`); 
+        navigate("/login"); // Balik sa login page
+      } catch (err) {
+        console.error("Logout error:", err);
+        // Kahit may error, i-clear ang local storage at i-redirect
+        navigate("/login");
+      }
+    }
+  };
+
+  // --- ADD LIST (Modern Popup) ---
   const addList = async () => {
-    const listTitle = prompt("Enter list title:");
-    if (!listTitle) return;
-    try {
-      const res = await fetch(`${apiUrl}/add-list`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ listTitle }),
-      });
-      if (res.ok) await fetchLists();
-    } catch (err) {
-      console.error("Error connecting to server:", err);
+    const { value: listTitle } = await Swal.fire({
+      title: 'New List Title',
+      input: 'text',
+      inputPlaceholder: 'Enter list title...',
+      showCancelButton: true,
+      inputValidator: (value) => {
+        if (!value) return 'Kailangan may title!'
+      }
+    });
+
+    if (listTitle) {
+      try {
+        const res = await fetch(`${apiUrl}/add-list`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ listTitle }),
+        });
+        if (res.ok) {
+          fetchLists();
+          Swal.fire('Success!', 'Listahan ay naidagdag na.', 'success');
+        }
+      } catch (err) {
+        Swal.fire('Error', 'Hindi makakonekta sa server', 'error');
+      }
     }
   };
 
-  // --- NEW: EDIT LIST TITLE ---
+  // --- EDIT LIST (Modern Popup) ---
   const editList = async (e, listId, currentTitle) => {
-    e.stopPropagation(); // Pinipigilan nito ang pag-navigate papasok sa list
-    const newTitle = prompt("Edit list title:", currentTitle);
-    if (!newTitle || newTitle === currentTitle) return;
+    e.stopPropagation();
+    const { value: newTitle } = await Swal.fire({
+      title: 'Edit List Title',
+      input: 'text',
+      inputValue: currentTitle,
+      showCancelButton: true,
+      inputValidator: (value) => {
+        if (!value) return 'Hindi pwedeng walang title!'
+      }
+    });
 
-    try {
-      const res = await fetch(`${apiUrl}/edit-list/${listId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ listTitle: newTitle }),
-      });
-      if (res.ok) await fetchLists();
-    } catch (err) {
-      console.error("Error editing list:", err);
+    if (newTitle && newTitle !== currentTitle) {
+      try {
+        const res = await fetch(`${apiUrl}/edit-list/${listId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ listTitle: newTitle }),
+        });
+        if (res.ok) fetchLists();
+      } catch (err) {
+        console.error("Error editing list:", err);
+      }
     }
   };
 
-  // --- NEW: DELETE LIST ---
+  // --- DELETE LIST (Modern Confirmation) ---
   const deleteList = async (e, listId) => {
-    e.stopPropagation(); // Pinipigilan nito ang pag-navigate
-    if (!window.confirm("Bura na ba itong buong listahan pati ang mga tasks sa loob?")) return;
+    e.stopPropagation();
+    const result = await Swal.fire({
+      title: 'Sigurado ka ba?',
+      text: "Mabubura pati ang mga tasks sa loob nito!",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Oo, bura na!'
+    });
 
-    try {
-      const res = await fetch(`${apiUrl}/delete-list/${listId}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      if (res.ok) await fetchLists();
-    } catch (err) {
-      console.error("Error deleting list:", err);
+    if (result.isConfirmed) {
+      try {
+        const res = await fetch(`${apiUrl}/delete-list/${listId}`, {
+          method: "DELETE",
+          credentials: "include",
+        });
+        if (res.ok) {
+          fetchLists();
+          Swal.fire('Deleted!', 'Ang listahan ay nabura na.', 'success');
+        }
+      } catch (err) {
+        console.error("Error deleting list:", err);
+      }
     }
   };
 
@@ -82,12 +144,20 @@ function ListItem() {
       <div className="p-6 max-w-4xl mx-auto">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-3xl font-bold">My To-Do Lists</h2>
-          <button 
-            onClick={addList} 
-            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors"
-          >
-            + New List
-          </button>
+          <div className="flex gap-2">
+            <button 
+              onClick={addList} 
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors"
+            >
+              + New List
+            </button>
+            <button 
+              onClick={handleLogout} 
+              className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg transition-colors"
+            >
+              Logout
+            </button>
+          </div>
         </div>
 
         <div className="grid gap-4">
@@ -105,7 +175,6 @@ function ListItem() {
                   <p className="text-sm text-gray-500">View items inside this list →</p>
                 </div>
 
-                {/* EDIT AT DELETE BUTTONS */}
                 <div className="flex gap-2">
                   <button 
                     onClick={(e) => editList(e, list.id, list.title)}
