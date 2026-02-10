@@ -1,7 +1,11 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
+
+// I-import ang existing pages mo (Siguraduhin ang tamang folder path)
 import Login from './pages/Login'; 
+import Register from './pages/Register';
+import Home from './pages/Home';
 import ListItem from './pages/ListItem';
 import ListItemsDetail from './pages/ListItemsDetail';
 
@@ -11,8 +15,7 @@ const API_URL = import.meta.env.VITE_PUBLIC_API_URL || 'https://to-do-list-p4te.
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(null);
 
-  // function para i-check kung valid ang session sa server
-  const checkAuth = async () => {
+  const checkAuth = useCallback(async () => {
     try {
       const res = await axios.get(`${API_URL}/get-session`);
       if (res.data.session) {
@@ -23,17 +26,16 @@ function App() {
     } catch (err) {
       setIsAuthenticated(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     checkAuth();
-  }, []);
+  }, [checkAuth]);
 
-  // Loading screen habang nag-ve-verify para hindi mag-flicker ang UI
   if (isAuthenticated === null) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="w-10 h-10 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
+      <div className="min-h-screen flex items-center justify-center bg-white text-green-600 font-bold">
+        Checking security...
       </div>
     );
   }
@@ -41,26 +43,28 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* LOGIN: Kapag auth na, bawal na bumalik sa login, itatapon sa dashboard */}
+        {/* Public - Pwedeng makita kahit sino */}
+        <Route path="/" element={<Home />} />
+        <Route path="/register" element={<Register />} />
+        
+        {/* Login - Kung logged in na, bawal na mag-login ulit */}
         <Route 
           path="/login" 
-          element={!isAuthenticated ? <Login /> : <Navigate to="/listitem" />} 
+          element={!isAuthenticated ? <Login /> : <Navigate to="/listitem" replace />} 
         />
 
-        {/* DASHBOARD: Kapag HINDI auth, itatapon sa login */}
+        {/* PROTECTED - Ito ang hinahanap mong security. */}
         <Route 
           path="/listitem" 
-          element={isAuthenticated ? <ListItem /> : <Navigate to="/login" />} 
+          element={isAuthenticated ? <ListItem /> : <Navigate to="/login" replace />} 
         />
-
-        {/* DETAILS: Kapag HINDI auth, itatapon sa login */}
         <Route 
           path="/list/:id" 
-          element={isAuthenticated ? <ListItemsDetail /> : <Navigate to="/login" />} 
+          element={isAuthenticated ? <ListItemsDetail /> : <Navigate to="/login" replace />} 
         />
 
-        {/* DEFAULT: Kahit anong maling URL, itapon sa tamang page base sa auth status */}
-        <Route path="*" element={<Navigate to={isAuthenticated ? "/listitem" : "/login"} />} />
+        {/* Ibalik sa Login kung mali ang URL */}
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </Router>
   );
