@@ -10,6 +10,12 @@ function ListItemsDetail() {
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
 
+  // --- STATE PARA SA MODAL ---
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState(""); // "add", "edit", "delete"
+  const [currentItem, setCurrentItem] = useState({ id: null, description: "" });
+  const [inputValue, setInputValue] = useState("");
+
   const fetchItems = async () => {
     try {
       const res = await fetch(`${apiUrl}/get-items/${id}`, { credentials: "include" });
@@ -21,78 +27,53 @@ function ListItemsDetail() {
     }
   };
 
-  const addItem = async () => {
-    const description = prompt("Enter task:");
-    if (!description) return;
-    try {
-      const res = await fetch(`${apiUrl}/add-items`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ list_id: id, description }),
-      });
-      if (res.ok) await fetchItems();
-    } catch (err) {
-      console.error("Error adding task:", err);
-    }
-  };
-
-  // --- NEW: EDIT FUNCTION ---
-  const editItem = async (itemId, currentDescription) => {
-    const newDescription = prompt("Edit task:", currentDescription);
-    if (!newDescription || newDescription === currentDescription) return;
-
-    try {
-      const res = await fetch(`${apiUrl}/edit-item/${itemId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ description: newDescription }),
-      });
-
-      if (res.ok) {
-        await fetchItems();
-      } else {
-        alert("Failed to update task.");
-      }
-    } catch (err) {
-      console.error("Error editing task:", err);
-    }
-  };
-
-  // --- NEW: DELETE FUNCTION ---
-  const deleteItem = async (itemId) => {
-    if (!window.confirm("Are you sure you want to delete this task?")) return;
-
-    try {
-      const res = await fetch(`${apiUrl}/delete-item/${itemId}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-
-      if (res.ok) {
-        await fetchItems();
-      } else {
-        alert("Failed to delete task.");
-      }
-    } catch (err) {
-      console.error("Error deleting task:", err);
-    }
-  };
-
   useEffect(() => {
     if (id) fetchItems();
   }, [id]);
 
+  // --- MODAL HANDLERS ---
+  const openModal = (mode, item = { id: null, description: "" }) => {
+    setModalMode(mode);
+    setCurrentItem(item);
+    setInputValue(item.description || "");
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setInputValue("");
+  };
+
+  const handleAction = async () => {
+    if ((modalMode === "add" || modalMode === "edit") && !inputValue.trim()) return;
+
+    try {
+      if (modalMode === "add") {
+        await axios.post(`${apiUrl}/add-items`, { list_id: id, description: inputValue });
+      } else if (modalMode === "edit") {
+        await axios.put(`${apiUrl}/edit-item/${currentItem.id}`, { description: inputValue });
+      } else if (modalMode === "delete") {
+        await axios.delete(`${apiUrl}/delete-item/${currentItem.id}`);
+      }
+      fetchItems();
+      closeModal();
+    } catch (err) {
+      console.error(`Error during ${modalMode}:`, err);
+    }
+  };
+
   return (
     <div className="p-6 max-w-4xl mx-auto">
-      <button onClick={() => navigate("/listitem")} className="mb-4 text-blue-600 font-medium hover:underline">
+      <button onClick={() => navigate("/listitem")} className="mb-4 text-blue-600 font-medium hover:underline flex items-center gap-1">
         ← Back to All Lists
       </button>
 
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold">Tasks for List #{id}</h2>
-        <button onClick={addItem} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">
+        <button 
+          onClick={() => openModal("add")} 
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+        >
           + Add Task
         </button>
       </div>
@@ -110,16 +91,15 @@ function ListItemsDetail() {
                 </span>
               </div>
 
-              {/* ACTION BUTTONS */}
               <div className="flex gap-2">
                 <button 
-                  onClick={() => editItem(item.id, item.description)}
+                  onClick={() => openModal("edit", item)}
                   className="text-sm bg-gray-100 hover:bg-blue-100 hover:text-blue-600 px-3 py-1 rounded transition-colors"
                 >
                   Edit
                 </button>
                 <button 
-                  onClick={() => deleteItem(item.id)}
+                  onClick={() => openModal("delete", item)}
                   className="text-sm bg-gray-100 hover:bg-red-100 hover:text-red-600 px-3 py-1 rounded transition-colors"
                 >
                   Delete
@@ -129,6 +109,50 @@ function ListItemsDetail() {
           ))
         )}
       </ul>
+
+      {/* --- CUSTOM MODAL UI --- */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className="bg-white rounded-xl p-6 max-w-sm w-full shadow-2xl scale-in-center">
+            <h3 className="text-xl font-bold mb-4">
+              {modalMode === 'delete' ? 'Delete Task' : modalMode === 'edit' ? 'Edit Task' : 'New Task'}
+            </h3>
+            
+            {modalMode === 'delete' ? (
+              <p className="text-gray-600 mb-6">Sigurado ka bang buburahin mo ang task na ito?</p>
+            ) : (
+              <div className="flex flex-col gap-2 mb-6">
+                <label className="text-xs font-semibold text-gray-500 uppercase">Description</label>
+                <input 
+                  type="text" 
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  placeholder="Ano ang gagawin mo?"
+                  className="w-full border-2 rounded-lg p-2 focus:border-blue-500 outline-none transition-all"
+                  autoFocus
+                />
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3">
+              <button 
+                onClick={closeModal}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleAction}
+                className={`px-4 py-2 text-white rounded-lg shadow-md transition-all active:scale-95 ${
+                  modalMode === 'delete' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'
+                }`}
+              >
+                {modalMode === 'delete' ? 'Confirm' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
