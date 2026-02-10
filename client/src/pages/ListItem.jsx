@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import axios from 'axios';
 import { useNavigate } from "react-router-dom";
-import Swal from 'sweetalert2'; // Import SweetAlert2
 import Header from "../Components/Header";
 
 const apiUrl = import.meta.env.VITE_PUBLIC_API_URL || 'https://to-do-list-p4te.onrender.com';
@@ -10,6 +9,12 @@ axios.defaults.withCredentials = true;
 function ListItem() {
   const [lists, setLists] = useState([]);
   const navigate = useNavigate();
+  
+  // --- STATE PARA SA MODAL ---
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState(""); // "add", "edit", or "delete"
+  const [currentList, setCurrentList] = useState({ id: null, title: "" });
+  const [inputValue, setInputValue] = useState("");
 
   const fetchLists = async () => {
     try {
@@ -22,121 +27,45 @@ function ListItem() {
     }
   };
 
-  // --- LOGOUT FUNCTION ---
-  const handleLogout = async () => {
-    const result = await Swal.fire({
-      title: 'Logout?',
-      text: "Sigurado ka bang gusto mong umalis?",
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#3085d6',
-      confirmButtonText: 'Yes, logout!'
-    });
-
-    if (result.isConfirmed) {
-      try {
-        // Pwedeng tawagin ang backend logout endpoint mo rito
-        await axios.post(`${apiUrl}/logout`); 
-        navigate("/login"); // Balik sa login page
-      } catch (err) {
-        console.error("Logout error:", err);
-        // Kahit may error, i-clear ang local storage at i-redirect
-        navigate("/login");
-      }
-    }
-  };
-
-  // --- ADD LIST (Modern Popup) ---
-  const addList = async () => {
-    const { value: listTitle } = await Swal.fire({
-      title: 'New List Title',
-      input: 'text',
-      inputPlaceholder: 'Enter list title...',
-      showCancelButton: true,
-      inputValidator: (value) => {
-        if (!value) return 'Kailangan may title!'
-      }
-    });
-
-    if (listTitle) {
-      try {
-        const res = await fetch(`${apiUrl}/add-list`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ listTitle }),
-        });
-        if (res.ok) {
-          fetchLists();
-          Swal.fire('Success!', 'Listahan ay naidagdag na.', 'success');
-        }
-      } catch (err) {
-        Swal.fire('Error', 'Hindi makakonekta sa server', 'error');
-      }
-    }
-  };
-
-  // --- EDIT LIST (Modern Popup) ---
-  const editList = async (e, listId, currentTitle) => {
-    e.stopPropagation();
-    const { value: newTitle } = await Swal.fire({
-      title: 'Edit List Title',
-      input: 'text',
-      inputValue: currentTitle,
-      showCancelButton: true,
-      inputValidator: (value) => {
-        if (!value) return 'Hindi pwedeng walang title!'
-      }
-    });
-
-    if (newTitle && newTitle !== currentTitle) {
-      try {
-        const res = await fetch(`${apiUrl}/edit-list/${listId}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ listTitle: newTitle }),
-        });
-        if (res.ok) fetchLists();
-      } catch (err) {
-        console.error("Error editing list:", err);
-      }
-    }
-  };
-
-  // --- DELETE LIST (Modern Confirmation) ---
-  const deleteList = async (e, listId) => {
-    e.stopPropagation();
-    const result = await Swal.fire({
-      title: 'Sigurado ka ba?',
-      text: "Mabubura pati ang mga tasks sa loob nito!",
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#3085d6',
-      confirmButtonText: 'Oo, bura na!'
-    });
-
-    if (result.isConfirmed) {
-      try {
-        const res = await fetch(`${apiUrl}/delete-list/${listId}`, {
-          method: "DELETE",
-          credentials: "include",
-        });
-        if (res.ok) {
-          fetchLists();
-          Swal.fire('Deleted!', 'Ang listahan ay nabura na.', 'success');
-        }
-      } catch (err) {
-        console.error("Error deleting list:", err);
-      }
-    }
-  };
-
   useEffect(() => {
     fetchLists();
   }, []);
+
+  // --- MODAL HANDLERS ---
+  const openModal = (mode, list = { id: null, title: "" }) => {
+    setModalMode(mode);
+    setCurrentList(list);
+    setInputValue(list.title);
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setInputValue("");
+  };
+
+  const handleAction = async () => {
+    if ((modalMode === "add" || modalMode === "edit") && !inputValue.trim()) return;
+
+    try {
+      if (modalMode === "add") {
+        await axios.post(`${apiUrl}/add-list`, { listTitle: inputValue });
+      } else if (modalMode === "edit") {
+        await axios.put(`${apiUrl}/edit-list/${currentList.id}`, { listTitle: inputValue });
+      } else if (modalMode === "delete") {
+        await axios.delete(`${apiUrl}/delete-list/${currentList.id}`);
+      }
+      fetchLists();
+      closeModal();
+    } catch (err) {
+      console.error(`Error during ${modalMode}:`, err);
+    }
+  };
+
+  const handleLogout = () => {
+    // Simpleng logout logic
+    navigate("/login");
+  };
 
   return (
     <>
@@ -146,14 +75,14 @@ function ListItem() {
           <h2 className="text-3xl font-bold">My To-Do Lists</h2>
           <div className="flex gap-2">
             <button 
-              onClick={addList} 
+              onClick={() => openModal("add")} 
               className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors"
             >
               + New List
             </button>
             <button 
               onClick={handleLogout} 
-              className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg transition-colors"
+              className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors"
             >
               Logout
             </button>
@@ -177,13 +106,13 @@ function ListItem() {
 
                 <div className="flex gap-2">
                   <button 
-                    onClick={(e) => editList(e, list.id, list.title)}
+                    onClick={(e) => { e.stopPropagation(); openModal("edit", list); }}
                     className="bg-blue-100 text-blue-600 px-3 py-1 rounded hover:bg-blue-200"
                   >
                     Edit
                   </button>
                   <button 
-                    onClick={(e) => deleteList(e, list.id)}
+                    onClick={(e) => { e.stopPropagation(); openModal("delete", list); }}
                     className="bg-red-100 text-red-600 px-3 py-1 rounded hover:bg-red-200"
                   >
                     Delete
@@ -194,6 +123,45 @@ function ListItem() {
           )}
         </div>
       </div>
+
+      {/* --- CUSTOM MODAL UI --- */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl p-6 max-w-sm w-full shadow-2xl">
+            <h3 className="text-xl font-bold mb-4 capitalize">
+              {modalMode === 'delete' ? 'Confirm Delete' : `${modalMode} List`}
+            </h3>
+            
+            {modalMode === 'delete' ? (
+              <p className="text-gray-600 mb-6">Sigurado ka bang buburahin mo ang "{currentList.title}"?</p>
+            ) : (
+              <input 
+                type="text" 
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                placeholder="Enter list title..."
+                className="w-full border-2 rounded-lg p-2 mb-6 focus:border-blue-500 outline-none"
+                autoFocus
+              />
+            )}
+
+            <div className="flex justify-end gap-3">
+              <button 
+                onClick={closeModal}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleAction}
+                className={`px-4 py-2 text-white rounded-lg ${modalMode === 'delete' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+              >
+                {modalMode === 'delete' ? 'Delete' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
